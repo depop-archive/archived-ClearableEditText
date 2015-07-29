@@ -72,7 +72,7 @@ public class ClearableEditText extends AppCompatEditText implements View.OnTouch
     @Override
     public boolean onTouch(final View view, final MotionEvent motionEvent) {
         final int x = (int) motionEvent.getX();
-        if (hasFocus() && x > getWidth() - getPaddingRight() - mClearTextIcon.getIntrinsicWidth()) {
+        if (mClearTextIcon.isVisible() && x > getWidth() - getPaddingRight() - mClearTextIcon.getIntrinsicWidth()) {
             if (motionEvent.getAction() == MotionEvent.ACTION_UP) {
                 setError(null);
                 setText("");
@@ -99,6 +99,7 @@ public class ClearableEditText extends AppCompatEditText implements View.OnTouch
 
 
     private void setClearIconVisible(final boolean visible) {
+        mClearTextIcon.setVisible(visible, false);
         mClearTextIcon.setVisible(visible, false);
         final Drawable[] compoundDrawables = getCompoundDrawables();
         setCompoundDrawables(

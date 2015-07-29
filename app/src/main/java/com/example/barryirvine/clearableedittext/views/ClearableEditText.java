@@ -100,7 +100,6 @@ public class ClearableEditText extends AppCompatEditText implements View.OnTouch
 
     private void setClearIconVisible(final boolean visible) {
         mClearTextIcon.setVisible(visible, false);
-        mClearTextIcon.setVisible(visible, false);
         final Drawable[] compoundDrawables = getCompoundDrawables();
         setCompoundDrawables(
                 compoundDrawables[0],

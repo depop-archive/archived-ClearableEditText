@@ -7,15 +7,10 @@
         <item name="colorAccent">@color/accent</item>
         <item name="android:textColorPrimary">@color/textPrimary</item>
         <item name="android:textColorHint">@color/textHint</item>
-        <item name="android:editTextStyle">@style/EditText</item>
     </style>
 
     <style name="AccentButton" parent="Widget.AppCompat.Button">
         <item name="colorButtonNormal">?colorAccent</item>
-    </style>
-
-    <style name="EditText" parent="Widget.AppCompat.EditText">
-
     </style>
 
 

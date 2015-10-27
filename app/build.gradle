@@ -21,5 +21,6 @@ android {
 
 dependencies {
     compile fileTree(dir: 'libs', include: ['*.jar'])
-    compile 'com.android.support:design:23.1.0' // Includes support-v4 and appcompat
+    compile 'com.android.support:design:23.0.1' // Includes support-v4 and appcompat
+    testCompile 'junit:junit:4.12'
 }

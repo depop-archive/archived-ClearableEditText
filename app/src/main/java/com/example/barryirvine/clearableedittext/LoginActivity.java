@@ -5,15 +5,20 @@ import android.animation.AnimatorListenerAdapter;
 import android.content.res.Configuration;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Parcelable;
+import android.os.PersistableBundle;
 import android.support.design.widget.TextInputLayout;
 import android.support.v7.app.AppCompatActivity;
-import android.text.TextUtils;
+import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.view.inputmethod.EditorInfo;
 import android.widget.Button;
 import android.widget.TextView;
+
+import com.example.barryirvine.clearableedittext.textwatchers.MinimumLengthTextWatcher;
+import com.example.barryirvine.clearableedittext.textwatchers.ValidEmailTextWatcher;
 
 
 /**
@@ -35,24 +40,39 @@ public class LoginActivity extends AppCompatActivity {
 
     // UI references.
     private TextInputLayout mEmailView;
+    private ValidEmailTextWatcher mValidEmailTextWatcher;
     private TextInputLayout mPasswordView;
+    private MinimumLengthTextWatcher mValidPasswordTextWatcher;
     private View mProgressView;
     private View mLoginFormView;
 
+    private static final String STATE_EMAIL_ERROR_TEXT = "STATE_EMAIL_ERROR_TEXT";
+    private static final String STATE_PASSWORD_ERROR_TEXT = "STATE_PASSWORD_ERROR_TEXT";
+
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
+    protected void onCreate(final Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        Log.d("BARRY", "onCreate");
         setContentView(R.layout.activity_login);
         setTitle(R.string.action_sign_in_short);
 
         // Set up the login form.
         mEmailView = (TextInputLayout) findViewById(R.id.email_text_input_layout);
-
+        // The animation is switched off by default in the XML. This ensures that it only starts animating once the view is laid out.
+        mEmailView.post(new Runnable() {
+            @Override
+            public void run() {
+                mEmailView.setHintAnimationEnabled(true);
+            }
+        });
+        mValidEmailTextWatcher = new ValidEmailTextWatcher(mEmailView);
+        mEmailView.getEditText().addTextChangedListener(mValidEmailTextWatcher);
         mPasswordView = (TextInputLayout) findViewById(R.id.password_text_input_layout);
-
+        mValidPasswordTextWatcher = new MinimumLengthTextWatcher(mPasswordView, getResources().getInteger(R.integer.min_length_password));
+        mPasswordView.getEditText().addTextChangedListener(mValidPasswordTextWatcher);
         mPasswordView.getEditText().setOnEditorActionListener(new TextView.OnEditorActionListener() {
             @Override
-            public boolean onEditorAction(TextView textView, int id, KeyEvent keyEvent) {
+            public boolean onEditorAction(final TextView textView, final int id, final KeyEvent keyEvent) {
                 if (id == R.id.login || id == EditorInfo.IME_NULL) {
                     attemptLogin();
                     return true;
@@ -64,23 +84,58 @@ public class LoginActivity extends AppCompatActivity {
         final Button emailSignInButton = (Button) findViewById(R.id.email_sign_in_button);
         emailSignInButton.setOnClickListener(new OnClickListener() {
             @Override
-            public void onClick(View view) {
+            public void onClick(final View view) {
                 attemptLogin();
             }
         });
 
         mLoginFormView = findViewById(R.id.login_form);
         mProgressView = findViewById(R.id.login_progress);
+
+
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+        // Hide toolbar when in landscape on phones to
         if (!getResources().getBoolean(R.bool.is_tablet) && getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE) {
             getSupportActionBar().hide();
         } else {
             getSupportActionBar().show();
         }
+    }
+
+    @Override
+    protected void onSaveInstanceState(final Bundle outState) {
+        /**
+         * TextInputLayout isn't saving its state like it should. This works around that issue.
+         * https://code.google.com/p/android/issues/detail?id=181621
+         */
+        outState.putCharSequence(STATE_EMAIL_ERROR_TEXT, mEmailView.getError());
+        outState.putCharSequence(STATE_PASSWORD_ERROR_TEXT, mPasswordView.getError());
+        super.onSaveInstanceState(outState);
+    }
+
+    @Override
+    protected void onRestoreInstanceState(final Bundle savedInstanceState) {
+        /**
+         * TextInputLayout isn't saving its state like it should. This works around that issue.
+         * https://code.google.com/p/android/issues/detail?id=181621
+         */
+        super.onRestoreInstanceState(savedInstanceState);
+        mEmailView.setError(savedInstanceState.getCharSequence(STATE_EMAIL_ERROR_TEXT));
+        mPasswordView.setError(savedInstanceState.getCharSequence(STATE_PASSWORD_ERROR_TEXT));
+    }
+
+    private boolean allFieldsAreValid() {
+        /**
+         * Since the text watchers automatically focus on erroneous fields, do them in reverse order so that the first one in the form gets focus
+         * &= may not be the easiest construct to decipher but it's a lot more concise. It just means that once it's false it doesn't get set to true
+         */
+        boolean isValid = mValidPasswordTextWatcher.validate();
+        isValid &= mValidEmailTextWatcher.validate();
+        return isValid;
     }
 
     /**
@@ -92,68 +147,23 @@ public class LoginActivity extends AppCompatActivity {
         if (mAuthTask != null) {
             return;
         }
-
-        // Reset errors.
-        mEmailView.setErrorEnabled(false);
-        mPasswordView.setErrorEnabled(false);
-
-        // Store values at the time of the login attempt.
-        String email = mEmailView.getEditText().getText().toString();
-        String password = mPasswordView.getEditText().getText().toString();
-
-        boolean cancel = false;
-        View focusView = null;
-
-        // Check for a valid password, if the user entered one.
-        if (!TextUtils.isEmpty(password) && !isPasswordValid(password)) {
-            mPasswordView.setError(getString(R.string.error_invalid_password));
-            focusView = mPasswordView;
-            cancel = true;
-        }
-
-        // Check for a valid email address.
-        if (TextUtils.isEmpty(email)) {
-            mEmailView.setError(getString(R.string.error_field_required));
-            focusView = mEmailView;
-            cancel = true;
-        } else if (!isEmailValid(email)) {
-            mEmailView.setError(getString(R.string.error_invalid_email));
-            focusView = mEmailView;
-            cancel = true;
-        }
-
-        if (cancel) {
-            // There was an error; don't attempt login and focus the first
-            // form field with an error.
-            focusView.requestFocus();
-        } else {
-            // Show a progress spinner, and kick off a background task to
-            // perform the user login attempt.
+        if (allFieldsAreValid()) {
+            final String email = mEmailView.getEditText().getText().toString();
+            final String password = mPasswordView.getEditText().getText().toString();
             showProgress(true);
             mAuthTask = new UserLoginTask(email, password);
             mAuthTask.execute((Void) null);
         }
     }
 
-    private boolean isEmailValid(String email) {
-        //TODO: Replace this with your own logic
-        return email.contains("@");
-    }
-
-    private boolean isPasswordValid(String password) {
-        //TODO: Replace this with your own logic
-        return password.length() > 4;
-    }
-
     /**
      * Shows the progress UI and hides the login form.
      */
-    public void showProgress(final boolean show) {
+    private void showProgress(final boolean show) {
         int shortAnimTime = getResources().getInteger(android.R.integer.config_shortAnimTime);
 
         mLoginFormView.setVisibility(show ? View.GONE : View.VISIBLE);
-        mLoginFormView.animate().setDuration(shortAnimTime).alpha(
-                show ? 0 : 1).setListener(new AnimatorListenerAdapter() {
+        mLoginFormView.animate().setDuration(shortAnimTime).alpha(show ? 0 : 1).setListener(new AnimatorListenerAdapter() {
             @Override
             public void onAnimationEnd(Animator animation) {
                 mLoginFormView.setVisibility(show ? View.GONE : View.VISIBLE);
@@ -161,8 +171,7 @@ public class LoginActivity extends AppCompatActivity {
         });
 
         mProgressView.setVisibility(show ? View.VISIBLE : View.GONE);
-        mProgressView.animate().setDuration(shortAnimTime).alpha(
-                show ? 1 : 0).setListener(new AnimatorListenerAdapter() {
+        mProgressView.animate().setDuration(shortAnimTime).alpha(show ? 1 : 0).setListener(new AnimatorListenerAdapter() {
             @Override
             public void onAnimationEnd(Animator animation) {
                 mProgressView.setVisibility(show ? View.VISIBLE : View.GONE);

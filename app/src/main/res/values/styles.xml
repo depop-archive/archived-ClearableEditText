@@ -9,8 +9,9 @@
         <item name="android:textColorHint">@color/textHint</item>
     </style>
 
-    <style name="AccentButton" parent="Widget.AppCompat.Button">
-        <item name="colorButtonNormal">?colorAccent</item>
+    <!-- Since the accent colour is quite dark - default from the darker theme so that the click state is light and the text is white -->
+    <style name="AccentButton" parent="Theme.AppCompat">
+        <item name="colorButtonNormal">@color/accent</item>
     </style>
 
 
